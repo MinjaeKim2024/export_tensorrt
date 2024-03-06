@@ -1,0 +1,102 @@
+Error importing BURST due to missing underlying dependency: No module named 'tabulate'
+
+Eval Config:
+USE_PARALLEL         : True                          
+NUM_PARALLEL_CORES   : 4                             
+BREAK_ON_ERROR       : True                          
+RETURN_ON_ERROR      : False                         
+LOG_ON_ERROR         : /home/minjae/ws/yolo_tracking/examples/val_utils/error_log.txt
+PRINT_RESULTS        : True                          
+PRINT_ONLY_COMBINED  : False                         
+PRINT_CONFIG         : True                          
+TIME_PROGRESS        : True                          
+DISPLAY_LESS_PROGRESS : False                         
+OUTPUT_SUMMARY       : True                          
+OUTPUT_EMPTY_CLASSES : True                          
+OUTPUT_DETAILED      : True                          
+PLOT_CURVES          : True                          
+
+MotChallenge2DBox Config:
+PRINT_CONFIG         : True                          
+GT_FOLDER            : /home/minjae/ws/yolo_tracking/examples/val_utils/data/MOT16/train
+TRACKERS_FOLDER      : /home/minjae/ws/yolo_tracking/runs/val/exp
+OUTPUT_FOLDER        : None                          
+TRACKERS_TO_EVAL     : ['mot']                       
+CLASSES_TO_EVAL      : ['pedestrian']                
+BENCHMARK            :                               
+SPLIT_TO_EVAL        : train                         
+INPUT_AS_ZIP         : False                         
+DO_PREPROC           : True                          
+TRACKER_SUB_FOLDER   :                               
+OUTPUT_SUB_FOLDER    :                               
+TRACKER_DISPLAY_NAMES : None                          
+SEQMAP_FOLDER        : None                          
+SEQMAP_FILE          : None                          
+SEQ_INFO             : {'MOT16-05': None, 'MOT16-13': None, 'MOT16-02': None, 'MOT16-09': None, 'MOT16-11': None, 'MOT16-04': None, 'MOT16-10': None}
+GT_LOC_FORMAT        : {gt_folder}/{seq}/gt/gt.txt   
+SKIP_SPLIT_FOL       : True                          
+Tracker file not found: /home/minjae/ws/yolo_tracking/runs/val/exp/mot/MOT16-05.txt
+Tracker file not found: /home/minjae/ws/yolo_tracking/runs/val/exp/mot/MOT16-13.txt
+Tracker file not found: /home/minjae/ws/yolo_tracking/runs/val/exp/mot/MOT16-02.txt
+Tracker file not found: /home/minjae/ws/yolo_tracking/runs/val/exp/mot/MOT16-09.txt
+Tracker file not found: /home/minjae/ws/yolo_tracking/runs/val/exp/mot/MOT16-11.txt
+Tracker file not found: /home/minjae/ws/yolo_tracking/runs/val/exp/mot/MOT16-04.txt
+Tracker file not found: /home/minjae/ws/yolo_tracking/runs/val/exp/mot/MOT16-10.txt
+
+CLEAR Config:
+METRICS              : ['HOTA', 'CLEAR', 'Identity'] 
+THRESHOLD            : 0.5                           
+PRINT_CONFIG         : True                          
+
+Identity Config:
+METRICS              : ['HOTA', 'CLEAR', 'Identity'] 
+THRESHOLD            : 0.5                           
+PRINT_CONFIG         : True                          
+
+Evaluating 1 tracker(s) on 7 sequence(s) for 1 class(es) on MotChallenge2DBox dataset using the following metrics: HOTA, CLEAR, Identity, Count
+
+
+Evaluating mot
+
+
+All sequences for mot finished in 0.40 seconds
+
+HOTA: mot-pedestrian               HOTA      DetA      AssA      DetRe     DetPr     AssRe     AssPr     LocA      OWTA      HOTA(0)   LocA(0)   HOTALocA(0)
+MOT16-02                           0         0         0         0         0         0         0         100       0         0         100       0         
+MOT16-04                           0         0         0         0         0         0         0         100       0         0         100       0         
+MOT16-05                           0         0         0         0         0         0         0         100       0         0         100       0         
+MOT16-09                           0         0         0         0         0         0         0         100       0         0         100       0         
+MOT16-10                           0         0         0         0         0         0         0         100       0         0         100       0         
+MOT16-11                           0         0         0         0         0         0         0         100       0         0         100       0         
+MOT16-13                           0         0         0         0         0         0         0         100       0         0         100       0         
+COMBINED                           0         0         0         0         0         0         0         100       0         0         100       0         
+
+CLEAR: mot-pedestrian              MOTA      MOTP      MODA      CLR_Re    CLR_Pr    MTR       PTR       MLR       sMOTA     CLR_TP    CLR_FN    CLR_FP    IDSW      MT        PT        ML        Frag      
+MOT16-02                           0         0         0         0         0         0         0         100       0         0         17833     0         0         0         0         54        0         
+MOT16-04                           0         0         0         0         0         0         0         100       0         0         47557     0         0         0         0         83        0         
+MOT16-05                           0         0         0         0         0         0         0         100       0         0         6818      0         0         0         0         125       0         
+MOT16-09                           0         0         0         0         0         0         0         100       0         0         5257      0         0         0         0         25        0         
+MOT16-10                           0         0         0         0         0         0         0         100       0         0         12318     0         0         0         0         54        0         
+MOT16-11                           0         0         0         0         0         0         0         100       0         0         9174      0         0         0         0         69        0         
+MOT16-13                           0         0         0         0         0         0         0         100       0         0         11450     0         0         0         0         107       0         
+COMBINED                           0         0         0         0         0         0         0         100       0         0         110407    0         0         0         0         517       0         
+
+Identity: mot-pedestrian           IDF1      IDR       IDP       IDTP      IDFN      IDFP      
+MOT16-02                           0         0         0         0         17833     0         
+MOT16-04                           0         0         0         0         47557     0         
+MOT16-05                           0         0         0         0         6818      0         
+MOT16-09                           0         0         0         0         5257      0         
+MOT16-10                           0         0         0         0         12318     0         
+MOT16-11                           0         0         0         0         9174      0         
+MOT16-13                           0         0         0         0         11450     0         
+COMBINED                           0         0         0         0         110407    0         
+
+Count: mot-pedestrian              Dets      GT_Dets   IDs       GT_IDs    
+MOT16-02                           0         17833     0         54        
+MOT16-04                           0         47557     0         83        
+MOT16-05                           0         6818      0         125       
+MOT16-09                           0         5257      0         25        
+MOT16-10                           0         12318     0         54        
+MOT16-11                           0         9174      0         69        
+MOT16-13                           0         11450     0         107       
+COMBINED                           0         110407    0         517       
