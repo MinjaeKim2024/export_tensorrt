@@ -5,16 +5,14 @@ from os.path import exists as file_exists
 from pathlib import Path
 
 import cv2
-import gdown
+#import gdown
 import numpy as np
 import torch
 import torch.nn as nn
 
 from boxmot.appearance.backbones import build_model, get_nr_classes
 from boxmot.appearance.reid_model_factory import (get_model_name,
-                                                  get_model_url,
-                                                  load_pretrained_weights,
-                                                  show_downloadable_models)
+                                                  load_pretrained_weights)
 from boxmot.utils import logger as LOGGER
 from boxmot.utils.checks import TestRequirements
 
