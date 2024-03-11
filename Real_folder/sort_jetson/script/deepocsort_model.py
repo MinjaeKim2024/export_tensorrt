@@ -93,7 +93,7 @@ class KalmanBoxTracker(object):
 
     count = 0
 
-    def __init__(self, det, delta_t=3, emb=None, alpha=0, new_kf=False):
+    def __init__(self, det, delta_t=3, emb=None, alpha=0, new_kf=False, size_diff = 1000):
         """
         Initialises a tracker using initial bounding box.
 
@@ -164,7 +164,18 @@ class KalmanBoxTracker(object):
         
         self.memory_embedding = deque(maxlen=10) 
         self.last_size = None
-
+        self.size_diff = size_diff
+        
+    def update_size_and_embedding(self, bbox, embedding):
+        """
+        Bounding box의 크기 변화를 계산하고, 조건에 따라 임베딩을 업데이트합니다.
+        """
+        current_size = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])  # 현재 bbox 크기
+        if self.last_size is None or abs(current_size - self.last_size) > self.size_diff:
+            self.memory_embedding.append(embedding)
+            self.last_size = current_size
+            
+            
     def update(self, det):
         """
         Updates the state vector with observed bbox.
@@ -296,6 +307,7 @@ class DeepOCSort(object):
         cmc_off=False,
         aw_off=False,
         new_kf_off=False,
+        size_diff = 1000,
         custom = False,
         num_classes = 751,
         **kwargs
@@ -320,12 +332,14 @@ class DeepOCSort(object):
 
         #self.model = ReIDDetectMultiBackend(weights=model_weights, device = device, fp16=fp16, custom = custom, num_classes= num_classes)
         self.model = ReIDDetectMultiBackend(weights=model_weights, fp16=fp16)
+        self.size_diff = size_diff
         # "similarity transforms using feature point extraction, optical flow, and RANSAC"
         self.cmc = SparseOptFlow()
         self.embedding_off = embedding_off
         self.cmc_off = cmc_off
         self.aw_off = aw_off
         self.new_kf_off = new_kf_off
+
 
     def update(self, dets, img):
         """
@@ -342,7 +356,6 @@ class DeepOCSort(object):
         assert isinstance(img, np.ndarray), f"Unsupported 'img' input type '{type(img)}', valid format is np.ndarray"
         assert len(dets.shape) == 2, "Unsupported 'dets' dimensions, valid number of dimensions is two"
         assert dets.shape[1] == 6, "Unsupported 'dets' 2nd dimension lenght, valid lenghts is 6"
-
         self.frame_count += 1
         self.height, self.width = img.shape[:2]
 
@@ -437,26 +450,22 @@ class DeepOCSort(object):
             self.trackers[m[1]].update(dets[m[0], :])
             self.trackers[m[1]].update_emb(dets_embs[m[0]], alpha=dets_alpha[m[0]])
             
-        """
-            matched, unmatched_dets, unmatched_trks = memory_associate(
-            dets[:, 0:5],
-            trks,
-            self.asso_func,
-            self.iou_threshold,
-            velocities,
-            k_observations,
-            self.inertia,
-            img.shape[1], # w
-            img.shape[0], # h
-            stage1_emb_cost,
-            self.w_association_emb,
-            self.aw_off,
-            self.aw_param,
-        )
-        """
-        # matched, unmatched_dets, unmatched_trks = memory_associate()
+        '''
+            memory_association
+        '''
         
-        
+        rematched, unmatched_dets, unmatched_trks = memory_associate(unmatched_dets, unmatched_trks, 
+                                                                     dets_embs, self.trackers, 
+                                                                     similarity_threshold=0.5)
+        print("rematched", rematched)
+        print("unmatched_dets", unmatched_dets)
+        print("unmatched_trks", unmatched_trks) 
+        for det_idx, trk_idx in rematched:
+            self.trackers[trk_idx].update(dets[det_idx, :])
+            self.trackers[trk_idx].update_emb(dets_embs[det_idx], alpha=dets_alpha[det_idx])
+            # 필요한 경우, bounding box 크기 변화와 관련된 추가 로직을 여기에 구현할 수 있습니다.
+
+
         """
             Second round of associaton by OCR
         """
@@ -504,7 +513,8 @@ class DeepOCSort(object):
                 delta_t=self.delta_t,
                 emb=dets_embs[i],
                 alpha=dets_alpha[i],
-                new_kf=not self.new_kf_off
+                new_kf=not self.new_kf_off,
+                size_diff = self.size_diff
             )
             self.trackers.append(trk)
         i = len(self.trackers)

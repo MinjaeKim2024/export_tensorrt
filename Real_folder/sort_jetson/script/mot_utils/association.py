@@ -283,5 +283,49 @@ def associate_kitti(
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
 
-def memory_associate():
-    pass
+def memory_associate(unmatched_dets, unmatched_trks, dets_embs, trackers, similarity_threshold=0.5):
+    """
+    매칭되지 않은 검출과 추적 사이에서 임베딩 기반 재매칭을 시도합니다.
+
+    Parameters:
+    - unmatched_dets: 매칭되지 않은 검출의 인덱스 리스트
+    - unmatched_trks: 매칭되지 않은 추적의 인덱스 리스트
+    - dets_embs: 검출된 객체의 임베딩 리스트
+    - trackers: 현재 활성화된 모든 추적기의 리스트
+    - similarity_threshold: 재매칭을 위한 유사도 임계값
+
+    Returns:
+    - rematched_pairs: 재매칭된 (검출 인덱스, 추적 인덱스) 쌍의 리스트
+    - unmatched_dets: 재매칭 후 남은 매칭되지 않은 검출의 인덱스 리스트
+    - unmatched_trks: 재매칭 후 남은 매칭되지 않은 추적의 인덱스 리스트
+    """
+    rematched_pairs = []
+    still_unmatched_dets = list(unmatched_dets)
+    still_unmatched_trks = list(unmatched_trks)
+
+    for det_idx in unmatched_dets:
+        det_emb = dets_embs[det_idx]
+        best_match_score = similarity_threshold
+        best_match_trk_idx = None
+
+        for trk_idx in unmatched_trks:
+            trk = trackers[trk_idx]
+            for trk_emb in trk.memory_embedding:
+                score = compute_similarity(det_emb, trk_emb)
+                if score > best_match_score:
+                    best_match_score = score
+                    best_match_trk_idx = trk_idx
+
+        if best_match_trk_idx is not None:
+            rematched_pairs.append((det_idx, best_match_trk_idx))
+            still_unmatched_dets.remove(det_idx)
+            still_unmatched_trks.remove(best_match_trk_idx)
+
+    return rematched_pairs, still_unmatched_dets, still_unmatched_trks
+
+def compute_similarity(emb1, emb2):
+    """두 임베딩 벡터 사이의 코사인 유사도를 계산합니다."""
+    dot_product = np.dot(emb1, emb2)
+    norm_a = np.linalg.norm(emb1)
+    norm_b = np.linalg.norm(emb2)
+    return dot_product / (norm_a * norm_b)
