@@ -98,10 +98,13 @@ if __name__ == "__main__":
     vid = cv2.VideoCapture(args.source)    
     ret = True
     visualizer = TrackerVisualizer()
+    
+    import time
+    
     while ret:
         ret, im = vid.read()
         # im: (h, w, c), c: (b, g, r)
-        results = model(im)[0]
+        results = model(im,conf=0.7)[0]
         det = results.boxes.data.cpu().numpy()
         target = []
         
@@ -118,7 +121,7 @@ if __name__ == "__main__":
             if args.show :
                 if visualizer.display_tracking_results(im, final_result, args):
                     break
-            continue
+        
         tracks = tracker.update(det, im)
         if len(tracks) == 0:
             continue
@@ -140,7 +143,7 @@ if __name__ == "__main__":
         if args.show :
             if visualizer.display_tracking_results(im, final_result, args):
                 break
-        
+        time.sleep(0.01)
     vid.release()
     if args.show:
         cv2.destroyAllWindows()

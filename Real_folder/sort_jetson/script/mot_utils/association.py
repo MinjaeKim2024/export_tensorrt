@@ -199,133 +199,45 @@ def associate(
 
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
-
-def associate_kitti(
-    detections, trackers, det_cates, iou_threshold, velocities, previous_obs, vdc_weight
-):
-    if len(trackers) == 0:
-        return (
-            np.empty((0, 2), dtype=int),
-            np.arange(len(detections)),
-            np.empty((0, 5), dtype=int),
-        )
-
-    """
-        Cost from the velocity direction consistency
-    """
-    Y, X = speed_direction_batch(detections, previous_obs)
-    inertia_Y, inertia_X = velocities[:, 0], velocities[:, 1]
-    inertia_Y = np.repeat(inertia_Y[:, np.newaxis], Y.shape[1], axis=1)
-    inertia_X = np.repeat(inertia_X[:, np.newaxis], X.shape[1], axis=1)
-    diff_angle_cos = inertia_X * X + inertia_Y * Y
-    diff_angle_cos = np.clip(diff_angle_cos, a_min=-1, a_max=1)
-    diff_angle = np.arccos(diff_angle_cos)
-    diff_angle = (np.pi / 2.0 - np.abs(diff_angle)) / np.pi
-
-    valid_mask = np.ones(previous_obs.shape[0])
-    valid_mask[np.where(previous_obs[:, 4] < 0)] = 0
-    valid_mask = np.repeat(valid_mask[:, np.newaxis], X.shape[1], axis=1)
-
-    scores = np.repeat(detections[:, -1][:, np.newaxis], trackers.shape[0], axis=1)
-    angle_diff_cost = (valid_mask * diff_angle) * vdc_weight
-    angle_diff_cost = angle_diff_cost.T
-    angle_diff_cost = angle_diff_cost * scores
-
-    """
-        Cost from IoU
-    """
-    iou_matrix = iou_batch(detections, trackers)
-
-    """
-        With multiple categories, generate the cost for catgory mismatch
-    """
-    num_dets = detections.shape[0]
-    num_trk = trackers.shape[0]
-    cate_matrix = np.zeros((num_dets, num_trk))
-    for i in range(num_dets):
-        for j in range(num_trk):
-            if det_cates[i] != trackers[j, 4]:
-                cate_matrix[i][j] = -1e6
-
-    cost_matrix = -iou_matrix - angle_diff_cost - cate_matrix
-
-    if min(iou_matrix.shape) > 0:
-        a = (iou_matrix > iou_threshold).astype(np.int32)
-        if a.sum(1).max() == 1 and a.sum(0).max() == 1:
-            matched_indices = np.stack(np.where(a), axis=1)
-        else:
-            matched_indices = linear_assignment(cost_matrix)
-    else:
-        matched_indices = np.empty(shape=(0, 2))
-
-    unmatched_detections = []
-    for d, det in enumerate(detections):
-        if d not in matched_indices[:, 0]:
-            unmatched_detections.append(d)
-    unmatched_trackers = []
-    for t, trk in enumerate(trackers):
-        if t not in matched_indices[:, 1]:
-            unmatched_trackers.append(t)
-
-    # filter out matched with low IOU
-    matches = []
-    for m in matched_indices:
-        if iou_matrix[m[0], m[1]] < iou_threshold:
-            unmatched_detections.append(m[0])
-            unmatched_trackers.append(m[1])
-        else:
-            matches.append(m.reshape(1, 2))
-    if len(matches) == 0:
-        matches = np.empty((0, 2), dtype=int)
-    else:
-        matches = np.concatenate(matches, axis=0)
-
-    return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
-
-
 def memory_associate(unmatched_dets, unmatched_trks, dets_embs, trackers, similarity_threshold=0.5):
-    """
-    매칭되지 않은 검출과 추적 사이에서 임베딩 기반 재매칭을 시도합니다.
 
-    Parameters:
-    - unmatched_dets: 매칭되지 않은 검출의 인덱스 리스트
-    - unmatched_trks: 매칭되지 않은 추적의 인덱스 리스트
-    - dets_embs: 검출된 객체의 임베딩 리스트
-    - trackers: 현재 활성화된 모든 추적기의 리스트
-    - similarity_threshold: 재매칭을 위한 유사도 임계값
-
-    Returns:
-    - rematched_pairs: 재매칭된 (검출 인덱스, 추적 인덱스) 쌍의 리스트
-    - unmatched_dets: 재매칭 후 남은 매칭되지 않은 검출의 인덱스 리스트
-    - unmatched_trks: 재매칭 후 남은 매칭되지 않은 추적의 인덱스 리스트
-    """
-    rematched_pairs = []
-    still_unmatched_dets = list(unmatched_dets)
-    still_unmatched_trks = list(unmatched_trks)
+    match_candidates = []
 
     for det_idx in unmatched_dets:
         det_emb = dets_embs[det_idx]
-        best_match_score = similarity_threshold
-        best_match_trk_idx = None
-
         for trk_idx in unmatched_trks:
             trk = trackers[trk_idx]
-            for trk_emb in trk.memory_embedding:
-                score = compute_similarity(det_emb, trk_emb)
-                if score > best_match_score:
-                    best_match_score = score
-                    best_match_trk_idx = trk_idx
+            similarity_scores = compute_max_similarity(det_emb, trk.memory_embedding)
+            print("similarity_scores", similarity_scores,det_idx, trk_idx)
+            max_similarity = np.max(similarity_scores)
+            if max_similarity > similarity_threshold:
+                match_candidates.append((det_idx, trk_idx, max_similarity))
 
-        if best_match_trk_idx is not None:
-            rematched_pairs.append((det_idx, best_match_trk_idx))
-            still_unmatched_dets.remove(det_idx)
-            still_unmatched_trks.remove(best_match_trk_idx)
+    match_candidates.sort(key=lambda x: x[2], reverse=True)
 
-    return rematched_pairs, still_unmatched_dets, still_unmatched_trks
+    matched = []
+    unmatched_dets_set = set(unmatched_dets)
+    unmatched_trks_set = set(unmatched_trks)
 
-def compute_similarity(emb1, emb2):
-    """두 임베딩 벡터 사이의 코사인 유사도를 계산합니다."""
-    dot_product = np.dot(emb1, emb2)
-    norm_a = np.linalg.norm(emb1)
-    norm_b = np.linalg.norm(emb2)
-    return dot_product / (norm_a * norm_b)
+    # 최고 점수를 가진 매칭부터 처리
+    for det_idx, trk_idx, _ in match_candidates:
+        if det_idx in unmatched_dets_set and trk_idx in unmatched_trks_set:
+            matched.append((det_idx, trk_idx))
+            unmatched_dets_set.remove(det_idx)
+            unmatched_trks_set.remove(trk_idx)
+
+    # 결과 반환
+    matched = np.array(matched, dtype=int) if matched else np.empty((0, 2), dtype=int)
+    still_unmatched_dets = np.array(list(unmatched_dets_set), dtype=int)
+    still_unmatched_trks = np.array(list(unmatched_trks_set), dtype=int)
+
+    return matched, still_unmatched_dets, still_unmatched_trks
+
+def compute_max_similarity(det_emb, memory_embeddings):
+    dot_products = np.dot(memory_embeddings, det_emb)  
+    norm_det_emb = np.linalg.norm(det_emb)
+    norm_memory_embeddings = np.linalg.norm(memory_embeddings, axis=1)  
+    similarities = dot_products / (norm_det_emb * norm_memory_embeddings)
+    
+    max_similarity = np.max(similarities)
+    return max_similarity

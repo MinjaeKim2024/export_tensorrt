@@ -162,21 +162,26 @@ class KalmanBoxTracker(object):
         self.emb = emb
         self.frozen = False
         
-        self.memory_embedding = deque(maxlen=10) 
-        self.last_size = None
+        # memory_embedding에 초기 임베딩 추가
+        self.memory_embedding = deque([emb], maxlen=10)
+        
+        # det로부터 bounding box의 크기 계산 및 last_size 초기화
+        current_size = (det[2] - det[0]) * (det[3] - det[1])
+        self.last_size = current_size
         self.size_diff = size_diff
         
     def update_size_and_embedding(self, bbox, embedding):
-        """
-        Bounding box의 크기 변화를 계산하고, 조건에 따라 임베딩을 업데이트합니다.
-        """
-        current_size = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])  # 현재 bbox 크기
-        if self.last_size is None or abs(current_size - self.last_size) > self.size_diff:
-            self.memory_embedding.append(embedding)
-            self.last_size = current_size
+        
+        
+        current_size = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])  
+        
+        if abs(current_size - self.last_size) > self.size_diff:
+            self.memory_embedding.append(embedding)  
+            self.last_size = current_size 
+        
             
             
-    def update(self, det):
+    def update(self, det, memory_emb = None):
         """
         Updates the state vector with observed bbox.
         """
@@ -187,7 +192,8 @@ class KalmanBoxTracker(object):
             self.cls = det[5]
             self.det_ind = det[6]
             self.frozen = False
-
+            if memory_emb is not None:
+                self.update_size_and_embedding(bbox, memory_emb)
             if self.last_observation.sum() >= 0:  # no previous observation
                 previous_box = None
                 for dt in range(self.delta_t, 0, -1):
@@ -449,22 +455,34 @@ class DeepOCSort(object):
         for m in matched:
             self.trackers[m[1]].update(dets[m[0], :])
             self.trackers[m[1]].update_emb(dets_embs[m[0]], alpha=dets_alpha[m[0]])
+            self.trackers[m[1]].update_size_and_embedding(dets[m[0]], dets_embs[m[0]])
             
         '''
             memory_association
-        '''
-        
-        rematched, unmatched_dets, unmatched_trks = memory_associate(unmatched_dets, unmatched_trks, 
-                                                                     dets_embs, self.trackers, 
-                                                                     similarity_threshold=0.5)
-        print("rematched", rematched)
-        print("unmatched_dets", unmatched_dets)
-        print("unmatched_trks", unmatched_trks) 
+        # '''
+        unmatched_trks = np.sort(unmatched_trks)
+        if len(unmatched_dets) > 0 or len(unmatched_trks) > 0:
+            print("before rematched", matched)
+            print("before unmatched_dets", unmatched_dets)
+            print("before unmatched_trks", unmatched_trks)
+            for ii in self.trackers:
+                print(ii.id)
+        rematched, unmatched_dets, unmatched_trks = memory_associate(unmatched_dets,
+                                                                     unmatched_trks,
+                                                                     dets_embs,
+                                                                     self.trackers,
+                                                                     similarity_threshold=0.7)
+
+        if len(rematched) > 0:
+            print("rematched", rematched)
+            print("unmatched_dets", unmatched_dets)
+            print("unmatched_trks", unmatched_trks) 
         for det_idx, trk_idx in rematched:
             self.trackers[trk_idx].update(dets[det_idx, :])
             self.trackers[trk_idx].update_emb(dets_embs[det_idx], alpha=dets_alpha[det_idx])
-            # 필요한 경우, bounding box 크기 변화와 관련된 추가 로직을 여기에 구현할 수 있습니다.
-
+            self.trackers[trk_idx].update_size_and_embedding(dets[det_idx], dets_embs[det_idx])
+        for m in unmatched_trks:
+            self.trackers[m].update(None)
 
         """
             Second round of associaton by OCR
@@ -502,9 +520,6 @@ class DeepOCSort(object):
                     to_remove_trk_indices.append(trk_ind)
                 unmatched_dets = np.setdiff1d(unmatched_dets, np.array(to_remove_det_indices))
                 unmatched_trks = np.setdiff1d(unmatched_trks, np.array(to_remove_trk_indices))
-
-        for m in unmatched_trks:
-            self.trackers[m].update(None)
 
         # create and initialise new trackers for unmatched detections
         for i in unmatched_dets:
