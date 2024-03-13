@@ -48,6 +48,8 @@ def get_main_args():
                         help='display tracking video results')
     parser.add_argument('--source', type=str, default=0,
                         help='video path, 0 for webcam')
+    
+    parser.add_argument("--save", action="store_true")
     args = parser.parse_args()
     
 
@@ -64,7 +66,7 @@ def get_main_args():
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
-    
+        
     
     device = 'cuda'
     
@@ -88,7 +90,6 @@ if __name__ == "__main__":
     )
     from ultralytics import YOLO
     model = YOLO("yolov8n.yaml")  # build a new model from scratch
-    # model = YOLO("weights/yolov8n.pt")  # load a pretrained model (recommended for training)
     model = YOLO("weights/yolov8n.engine")  # load a pretrained model (recommended for training)
     
 
@@ -96,13 +97,17 @@ if __name__ == "__main__":
     tracker = DeepOCSort(model_weights=Path(args.r_weights), device=device, fp16 = False,**oc_sort_args)
 
     vid = cv2.VideoCapture(args.source)    
+
     ret = True
-    visualizer = TrackerVisualizer()
+    visualizer = visualizer = TrackerVisualizer(save_path="result.mp4" if args.save else None, 
+                                                frame_size=(640, 480),
+                                                fps=20.0)
     
-    import time
     
     while ret:
         ret, im = vid.read()
+        if not ret:
+            visualizer.release()
         # im: (h, w, c), c: (b, g, r)
         results = model(im,conf=0.7)[0]
         det = results.boxes.data.cpu().numpy()
@@ -115,14 +120,14 @@ if __name__ == "__main__":
         det = det[target]
         results = results[target]
         
-        # 
         final_result = []
         if len(det) == 0:
-            if args.show :
+            if args.show:
                 if visualizer.display_tracking_results(im, final_result, args):
                     break
-        
+            # continue
         tracks = tracker.update(det, im)
+        
         if len(tracks) == 0:
             continue
         
@@ -143,8 +148,8 @@ if __name__ == "__main__":
         if args.show :
             if visualizer.display_tracking_results(im, final_result, args):
                 break
-        time.sleep(0.01)
-    vid.release()
+        
+        
     if args.show:
         cv2.destroyAllWindows()
     

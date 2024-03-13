@@ -460,23 +460,13 @@ class DeepOCSort(object):
         '''
             memory_association
         # '''
-        unmatched_trks = np.sort(unmatched_trks)
-        if len(unmatched_dets) > 0 or len(unmatched_trks) > 0:
-            print("before rematched", matched)
-            print("before unmatched_dets", unmatched_dets)
-            print("before unmatched_trks", unmatched_trks)
-            for ii in self.trackers:
-                print(ii.id)
+        
+        #unmatched_trks = np.sort(unmatched_trks)
         rematched, unmatched_dets, unmatched_trks = memory_associate(unmatched_dets,
                                                                      unmatched_trks,
                                                                      dets_embs,
                                                                      self.trackers,
                                                                      similarity_threshold=0.7)
-
-        if len(rematched) > 0:
-            print("rematched", rematched)
-            print("unmatched_dets", unmatched_dets)
-            print("unmatched_trks", unmatched_trks) 
         for det_idx, trk_idx in rematched:
             self.trackers[trk_idx].update(dets[det_idx, :])
             self.trackers[trk_idx].update_emb(dets_embs[det_idx], alpha=dets_alpha[det_idx])

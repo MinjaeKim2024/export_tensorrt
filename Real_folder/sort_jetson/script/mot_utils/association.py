@@ -155,23 +155,22 @@ def associate(
 
     if min(iou_matrix.shape):
         a = (iou_matrix > iou_threshold).astype(np.int32)
-        if a.sum(1).max() == 1 and a.sum(0).max() == 1:
-            matched_indices = np.stack(np.where(a), axis=1)
+        # if a.sum(1).max() == 1 and a.sum(0).max() == 1:
+        #     matched_indices = np.stack(np.where(a), axis=1)
+        # else:
+        if emb_cost is None:
+            emb_cost = 0
         else:
-            if emb_cost is None:
-                emb_cost = 0
+            emb_cost = emb_cost
+            emb_cost[iou_matrix <= 0] = 0
+            if not aw_off:
+                emb_cost = compute_aw_max_metric(emb_cost, w_assoc_emb, bottom=aw_param)
             else:
-                emb_cost = emb_cost
-                emb_cost[iou_matrix <= 0] = 0
-                if not aw_off:
-                    emb_cost = compute_aw_max_metric(emb_cost, w_assoc_emb, bottom=aw_param)
-                else:
-                    emb_cost *= w_assoc_emb
-
-            final_cost = -(iou_matrix + angle_diff_cost + emb_cost)
-            matched_indices = linear_assignment(final_cost)
-            if matched_indices.size == 0:
-                matched_indices = np.empty(shape=(0, 2))
+                emb_cost *= w_assoc_emb
+        final_cost = -(iou_matrix + angle_diff_cost + emb_cost)
+        matched_indices = linear_assignment(final_cost)
+        if matched_indices.size == 0:
+            matched_indices = np.empty(shape=(0, 2))
 
     else:
         matched_indices = np.empty(shape=(0, 2))
@@ -196,37 +195,52 @@ def associate(
         matches = np.empty((0, 2), dtype=int)
     else:
         matches = np.concatenate(matches, axis=0)
-
+    
+    # filter out matched with low emb_cost
+    # filtered_matches = []
+    # for m in matched_indices:
+    #     if emb_cost[m[0], m[1]] < 0.8:
+    #         unmatched_detections.append(m[0])
+    #         unmatched_trackers.append(m[1])
+    #     else:
+    #         filtered_matches.append(m.reshape(1, 2))
+    # if len(filtered_matches) == 0:
+    #     matches = np.empty((0, 2), dtype=int)
+    # else:
+        matches = np.concatenate(filtered_matches, axis=0)
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
 def memory_associate(unmatched_dets, unmatched_trks, dets_embs, trackers, similarity_threshold=0.5):
 
     match_candidates = []
-
+    
+    # matching candidates
     for det_idx in unmatched_dets:
         det_emb = dets_embs[det_idx]
         for trk_idx in unmatched_trks:
             trk = trackers[trk_idx]
+            
+            # similarity score calculation
             similarity_scores = compute_max_similarity(det_emb, trk.memory_embedding)
-            print("similarity_scores", similarity_scores,det_idx, trk_idx)
             max_similarity = np.max(similarity_scores)
+            
             if max_similarity > similarity_threshold:
                 match_candidates.append((det_idx, trk_idx, max_similarity))
 
     match_candidates.sort(key=lambda x: x[2], reverse=True)
-
+    
     matched = []
     unmatched_dets_set = set(unmatched_dets)
     unmatched_trks_set = set(unmatched_trks)
 
-    # 최고 점수를 가진 매칭부터 처리
+    # matching with the highest similarity
     for det_idx, trk_idx, _ in match_candidates:
         if det_idx in unmatched_dets_set and trk_idx in unmatched_trks_set:
             matched.append((det_idx, trk_idx))
             unmatched_dets_set.remove(det_idx)
             unmatched_trks_set.remove(trk_idx)
 
-    # 결과 반환
+    # convert to numpy array
     matched = np.array(matched, dtype=int) if matched else np.empty((0, 2), dtype=int)
     still_unmatched_dets = np.array(list(unmatched_dets_set), dtype=int)
     still_unmatched_trks = np.array(list(unmatched_trks_set), dtype=int)
@@ -234,6 +248,18 @@ def memory_associate(unmatched_dets, unmatched_trks, dets_embs, trackers, simila
     return matched, still_unmatched_dets, still_unmatched_trks
 
 def compute_max_similarity(det_emb, memory_embeddings):
+    """
+    This function computes the maximum similarity between a given detection embedding and a set of memory embeddings.
+    The similarity is calculated using the dot product of the embeddings, normalized by their magnitudes.
+
+    Parameters:
+    det_emb (numpy array): The embedding of the detection.
+    memory_embeddings (numpy array): The embeddings stored in memory.
+
+    Returns:
+    max_similarity (float): The maximum similarity value.
+    """
+    
     dot_products = np.dot(memory_embeddings, det_emb)  
     norm_det_emb = np.linalg.norm(det_emb)
     norm_memory_embeddings = np.linalg.norm(memory_embeddings, axis=1)  

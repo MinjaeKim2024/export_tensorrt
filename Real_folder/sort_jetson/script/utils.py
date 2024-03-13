@@ -5,6 +5,7 @@ from pathlib import Path
 from loguru import logger
 import numpy as np
 
+import os
 VID_FORMATS = ["asf", "avi", "gif", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "ts", "wmv", "webm"]
 
 def random_bgr():
@@ -40,24 +41,45 @@ logger.add(sys.stderr, colorize=True, level="INFO")
 
 
 class TrackerVisualizer:
-    def __init__(self):
+    def __init__(self, save_path=None, frame_size=(640, 480), fps=20.0):
         self.id_colors = {}
+        self.save_path = save_path
+        self.frame_size = frame_size
+        self.fps = fps
+        self.video_writer = None
+        if save_path:
+            self._init_video_writer()
+    def _init_video_writer(self):
+        base, ext = os.path.splitext(self.save_path)
+        counter = 1
+        while os.path.exists(self.save_path):
+            self.save_path = f"{base}_{counter}{ext}"
+            counter += 1
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        self.video_writer = cv2.VideoWriter(self.save_path, fourcc, self.fps, self.frame_size)
 
     def display_tracking_results(self, im, tracks, opt, thickness=2, fontscale=0.5):
-        
         for track in tracks:
             xyxy = track[:4].astype(int)
             id, conf, cls = track[4].astype(int), track[5], track[6].astype(int)
-            
             if id not in self.id_colors:
                 self.id_colors[id] = random_bgr()
             color = self.id_colors[id]
             im = cv2.rectangle(im, (xyxy[0], xyxy[1]), (xyxy[2], xyxy[3]), color, thickness)
             cv2.putText(im, f'id: {id}, conf: {conf:.2f}, class: {cls}', (xyxy[0], xyxy[1] - 10), 
                         cv2.FONT_HERSHEY_SIMPLEX, fontscale, color, thickness)
+
+        if self.video_writer:
+            self.video_writer.write(im)
+
         cv2.imshow('Tracking Results', im)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             return True  
-            
         return False
+
+    def release(self):
+        if self.video_writer:
+            self.video_writer.release()
+        cv2.destroyAllWindows()
     
