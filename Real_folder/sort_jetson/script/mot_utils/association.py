@@ -207,7 +207,7 @@ def associate(
     # if len(filtered_matches) == 0:
     #     matches = np.empty((0, 2), dtype=int)
     # else:
-        matches = np.concatenate(filtered_matches, axis=0)
+        # matches = np.concatenate(filtered_matches, axis=0)
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
 def memory_associate(unmatched_dets, unmatched_trks, dets_embs, trackers, similarity_threshold=0.5):
