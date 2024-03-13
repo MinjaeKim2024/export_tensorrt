@@ -460,8 +460,9 @@ class DeepOCSort(object):
         '''
             memory_association
         # '''
-        
-        #unmatched_trks = np.sort(unmatched_trks)
+        print("1 matched", matched)
+        print("1 unmatched_dets", unmatched_dets)
+        print("1 unmatched_trks", unmatched_trks)
         rematched, unmatched_dets, unmatched_trks = memory_associate(unmatched_dets,
                                                                      unmatched_trks,
                                                                      dets_embs,
@@ -477,7 +478,9 @@ class DeepOCSort(object):
         """
             Second round of associaton by OCR
         """
-        
+        print("2 matched", rematched)
+        print("2 unmatched_dets", unmatched_dets)
+        print("2 unmatched_trks", unmatched_trks)
         
         if unmatched_dets.shape[0] > 0 and unmatched_trks.shape[0] > 0:
             left_dets = dets[unmatched_dets]
@@ -488,29 +491,39 @@ class DeepOCSort(object):
             iou_left = self.asso_func(left_dets, left_trks)
             # TODO: is better without this
             emb_cost_left = left_dets_embs @ left_trks_embs.T
+            print("emb_cost_left", emb_cost_left)
+            
+            emb_cost_left = np.array(emb_cost_left)
+            valid_emb_cost_indices = np.where(emb_cost_left >= 0.8)[0]
+            iou_left = iou_left[valid_emb_cost_indices]
+            emb_cost_left = emb_cost_left[valid_emb_cost_indices]
             if self.embedding_off:
                 emb_cost_left = np.zeros_like(emb_cost_left)
             iou_left = np.array(iou_left)
-            if iou_left.max() > self.iou_threshold:
-                """
-                NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
-                get a higher performance especially on MOT17/MOT20 datasets. But we keep it
-                uniform here for simplicity
-                """
-                rematched_indices = linear_assignment(-iou_left)
-                to_remove_det_indices = []
-                to_remove_trk_indices = []
-                for m in rematched_indices:
-                    det_ind, trk_ind = unmatched_dets[m[0]], unmatched_trks[m[1]]
-                    if iou_left[m[0], m[1]] < self.iou_threshold:
-                        continue
-                    self.trackers[trk_ind].update(dets[det_ind, :])
-                    self.trackers[trk_ind].update_emb(dets_embs[det_ind], alpha=dets_alpha[det_ind])
-                    to_remove_det_indices.append(det_ind)
-                    to_remove_trk_indices.append(trk_ind)
-                unmatched_dets = np.setdiff1d(unmatched_dets, np.array(to_remove_det_indices))
-                unmatched_trks = np.setdiff1d(unmatched_trks, np.array(to_remove_trk_indices))
 
+            if iou_left.size > 0 and emb_cost_left.size > 0:
+                if iou_left.max() > self.iou_threshold:
+                    """
+                    NOTE: by using a lower threshold, e.g., self.iou_threshold - 0.1, you may
+                    get a higher performance especially on MOT17/MOT20 datasets. But we keep it
+                    uniform here for simplicity
+                    """
+                    rematched_indices = linear_assignment(-iou_left)
+                    to_remove_det_indices = []
+                    to_remove_trk_indices = []
+                    for m in rematched_indices:
+                        det_ind, trk_ind = unmatched_dets[m[0]], unmatched_trks[m[1]]
+                        if iou_left[m[0], m[1]] < self.iou_threshold:
+                            continue
+                        self.trackers[trk_ind].update(dets[det_ind, :])
+                        self.trackers[trk_ind].update_emb(dets_embs[det_ind], alpha=dets_alpha[det_ind])
+                        to_remove_det_indices.append(det_ind)
+                        to_remove_trk_indices.append(trk_ind)
+                    unmatched_dets = np.setdiff1d(unmatched_dets, np.array(to_remove_det_indices))
+                    unmatched_trks = np.setdiff1d(unmatched_trks, np.array(to_remove_trk_indices))
+
+        print("3 unmatched_dets", unmatched_dets)
+        print("3 unmatched_trks", unmatched_trks)
         # create and initialise new trackers for unmatched detections
         for i in unmatched_dets:
             trk = KalmanBoxTracker(
@@ -523,6 +536,7 @@ class DeepOCSort(object):
             )
             self.trackers.append(trk)
         i = len(self.trackers)
+        print("i",i)
         for trk in reversed(self.trackers):
             if trk.last_observation.sum() < 0:
                 d = trk.get_state()[0]

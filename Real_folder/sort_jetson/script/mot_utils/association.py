@@ -197,16 +197,16 @@ def associate(
         matches = np.concatenate(matches, axis=0)
     
     # filter out matched with low emb_cost
-    # filtered_matches = []
-    # for m in matched_indices:
-    #     if emb_cost[m[0], m[1]] < 0.8:
-    #         unmatched_detections.append(m[0])
-    #         unmatched_trackers.append(m[1])
-    #     else:
-    #         filtered_matches.append(m.reshape(1, 2))
-    # if len(filtered_matches) == 0:
-    #     matches = np.empty((0, 2), dtype=int)
-    # else:
+    filtered_matches = []
+    for m in matched_indices:
+        if emb_cost[m[0], m[1]] < 0.8:
+            unmatched_detections.append(m[0])
+            unmatched_trackers.append(m[1])
+        else:
+            filtered_matches.append(m.reshape(1, 2))
+    if len(filtered_matches) == 0:
+        matches = np.empty((0, 2), dtype=int)
+    else:
         matches = np.concatenate(filtered_matches, axis=0)
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
