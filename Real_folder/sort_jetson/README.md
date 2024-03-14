@@ -53,12 +53,14 @@ pip install -r requirements.txt
 ## Inference Option
 
 ```
-python3 script/total_track.py --custom --r_weights=weights/osnet_ain_x1_0_dukemtmcreid.engine --show
+python3 script/total_track.py --custom --r_weights=weights/osnet_ain_x1_0_dukemtmcreid.engine --iou_thresh 0.1 --source output12.mp4 --track_thresh 0.75 --min_hits 10 --w_assoc_emb 0.99 --show
+
 ```
 
 - option you can choose
     - --source: video or webcam # default is webcam (0)
     - --show: show in Online
+    - --save: save video
     - --r_weights: path of your Re-ID weight file
     
     - --custom: if you use your custom ReID weight, please use this option and change number of classes
