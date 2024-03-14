@@ -197,23 +197,22 @@ def associate(
         matches = np.concatenate(matches, axis=0)
     
     # filter out matched with low emb_cost
-    filtered_matches = []
-    for m in matched_indices:
-        if emb_cost[m[0], m[1]] < 0.8:
-            unmatched_detections.append(m[0])
-            unmatched_trackers.append(m[1])
-        else:
-            filtered_matches.append(m.reshape(1, 2))
-    if len(filtered_matches) == 0:
-        matches = np.empty((0, 2), dtype=int)
-    else:
-        matches = np.concatenate(filtered_matches, axis=0)
+    # filtered_matches = []
+    # for m in matched_indices:
+    #     if emb_cost[m[0], m[1]] < 0.8:
+    #         unmatched_detections.append(m[0])
+    #         unmatched_trackers.append(m[1])
+    #     else:
+    #         filtered_matches.append(m.reshape(1, 2))
+    # if len(filtered_matches) == 0:
+    #     matches = np.empty((0, 2), dtype=int)
+    # else:
+        # matches = np.concatenate(filtered_matches, axis=0)
     return matches, np.array(unmatched_detections), np.array(unmatched_trackers)
 
 def memory_associate(unmatched_dets, unmatched_trks, dets_embs, trackers, similarity_threshold=0.5):
 
     match_candidates = []
-    
     # matching candidates
     for det_idx in unmatched_dets:
         det_emb = dets_embs[det_idx]
@@ -221,8 +220,7 @@ def memory_associate(unmatched_dets, unmatched_trks, dets_embs, trackers, simila
             trk = trackers[trk_idx]
             
             # similarity score calculation
-            similarity_scores = compute_max_similarity(det_emb, trk.memory_embedding)
-            max_similarity = np.max(similarity_scores)
+            max_similarity= compute_max_similarity(det_emb, trk.memory_embedding)
             
             if max_similarity > similarity_threshold:
                 match_candidates.append((det_idx, trk_idx, max_similarity))
@@ -265,5 +263,4 @@ def compute_max_similarity(det_emb, memory_embeddings):
     norm_memory_embeddings = np.linalg.norm(memory_embeddings, axis=1)  
     similarities = dot_products / (norm_det_emb * norm_memory_embeddings)
     
-    max_similarity = np.max(similarities)
-    return max_similarity
+    return np.max(similarities)
